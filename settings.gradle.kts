@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Chwazi2"
+rootProject.name = "PickAPlayer"
 include(":app")

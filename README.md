@@ -1,6 +1,6 @@
-# Chwazi2
+# PickAPlayer
 
-Chwazi2 is a utility app designed to help you pick a starting player or split a group of people into teams. It is NOT a game itself, but a tool to facilitate board games, card games, or any activity requiring random selection or team division.
+PickAPlayer is a utility app designed to help you pick a starting player or split a group of people into teams. It is NOT a game itself, but a tool to facilitate board games, card games, or any activity requiring random selection or team division.
 
 ## Features
 
