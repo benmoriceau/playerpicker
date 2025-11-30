@@ -54,6 +54,28 @@ class FingerPickerView @JvmOverloads constructor(
     private val argbEvaluator = ArgbEvaluator()
 
     private var modeChangeListener: ((GameMode) -> Unit)? = null
+    
+    private var vibrationStartTime = 0L
+    private val vibrationRunnable = object : Runnable {
+        override fun run() {
+            val currentTime = System.currentTimeMillis()
+            val elapsed = currentTime - vibrationStartTime
+            val remaining = (TIMEOUT_MS - SOUND_START_DELAY_MS) - elapsed
+            
+            if (remaining <= 0) return // Finished
+            
+            // Calculate frequency: As remaining decreases, delay decreases.
+            // Start: delay ~500ms, End: delay ~50ms
+            val progress = 1f - (remaining.toFloat() / (TIMEOUT_MS - SOUND_START_DELAY_MS))
+            // Simple exponential or linear mapping
+            // Let's go linear for simplicity: 500 -> 50
+            val delay = (500 - (450 * progress)).toLong().coerceAtLeast(50)
+            
+            triggerTickVibration()
+            
+            handler.postDelayed(this, delay)
+        }
+    }
 
     private val pickRunnable = Runnable {
         performPick()
@@ -61,6 +83,7 @@ class FingerPickerView @JvmOverloads constructor(
 
     private val startSoundRunnable = Runnable {
         tonePlayer.start(TIMEOUT_MS - SOUND_START_DELAY_MS)
+        startProgressiveVibration()
     }
 
     init {
@@ -159,7 +182,8 @@ class FingerPickerView @JvmOverloads constructor(
         resetTimers()
         tonePlayer.stop()
         
-        if (fingers.isNotEmpty()) {
+        // Require at least 2 fingers to start the process
+        if (fingers.size >= 2) {
             handler.postDelayed(pickRunnable, TIMEOUT_MS)
             handler.postDelayed(startSoundRunnable, SOUND_START_DELAY_MS)
         }
@@ -168,11 +192,20 @@ class FingerPickerView @JvmOverloads constructor(
     private fun resetTimers() {
         handler.removeCallbacks(pickRunnable)
         handler.removeCallbacks(startSoundRunnable)
+        handler.removeCallbacks(vibrationRunnable)
+    }
+    
+    private fun startProgressiveVibration() {
+        vibrationStartTime = System.currentTimeMillis()
+        handler.post(vibrationRunnable)
     }
 
     private fun performPick() {
         tonePlayer.stop()
-        if (fingers.isEmpty()) return
+        handler.removeCallbacks(vibrationRunnable) // Stop ticking vibration
+        
+        // Double check requirement inside performPick although timer should handle it
+        if (fingers.size < 2) return
 
         val keys = fingers.keys.toList()
         if (keys.isNotEmpty()) {
@@ -239,6 +272,16 @@ class FingerPickerView @JvmOverloads constructor(
         } else {
             @Suppress("DEPRECATION")
             vibrator.vibrate(500)
+        }
+    }
+    
+    private fun triggerTickVibration() {
+        // Very short vibration for the tick effect
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE)) // 20ms
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(20)
         }
     }
     
