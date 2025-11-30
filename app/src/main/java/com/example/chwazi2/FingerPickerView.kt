@@ -1,5 +1,7 @@
 package com.example.chwazi2
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -16,6 +18,7 @@ import android.os.VibratorManager
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.widget.PopupMenu
 import java.util.Random
 import kotlin.math.abs
 import kotlin.math.cos
@@ -29,12 +32,20 @@ class FingerPickerView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    enum class GameMode(val displayName: String) {
+        STARTING_PLAYER("Starting Player"),
+        GROUP("Group")
+    }
+
     private data class Finger(
         var x: Float,
         var y: Float,
-        val color: Int,
-        val startTime: Long = System.currentTimeMillis()
+        var color: Int, // Changed to var to allow color update
+        val startTime: Long = System.currentTimeMillis(),
+        var groupColor: Int? = null // Used for group mode
     )
+
+    private var currentGameMode = GameMode.STARTING_PLAYER
 
     private val fingers = mutableMapOf<Int, Finger>() // pointerId -> Finger
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -43,7 +54,8 @@ class FingerPickerView @JvmOverloads constructor(
     private val vibrator: Vibrator
     
     private var isFinished = false
-    private var winnerPointerId: Int? = null
+    private var winnerPointerIds: List<Int>? = null // Changed to list for group mode
+    private var winnerColor: Int? = null
 
     // 5 seconds timeout
     private val TIMEOUT_MS = 5000L
@@ -53,10 +65,14 @@ class FingerPickerView @JvmOverloads constructor(
     private val CIRCLE_RADIUS_DP = 60f
     private var circleRadiusPx: Float = 0f
     
-    // Bounce animation duration
-    private val BOUNCE_DURATION_MS = 500L
-
     private val tonePlayer = RisingTonePlayer()
+    
+    // Background colors
+    private val defaultBackgroundColor = Color.parseColor("#2C2C2C")
+    private var currentBackgroundColor = defaultBackgroundColor
+    private val argbEvaluator = ArgbEvaluator()
+
+    private var modeChangeListener: ((GameMode) -> Unit)? = null
 
     private val pickRunnable = Runnable {
         performPick()
@@ -67,8 +83,7 @@ class FingerPickerView @JvmOverloads constructor(
     }
 
     init {
-        // Very dark grey background
-        setBackgroundColor(Color.parseColor("#1A1A1A"))
+        setBackgroundColor(defaultBackgroundColor)
         val density = context.resources.displayMetrics.density
         circleRadiusPx = CIRCLE_RADIUS_DP * density
 
@@ -80,6 +95,18 @@ class FingerPickerView @JvmOverloads constructor(
             @Suppress("DEPRECATION")
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
+    }
+
+    fun setGameMode(mode: GameMode) {
+        currentGameMode = mode
+        resetGame()
+        modeChangeListener?.invoke(mode)
+    }
+    
+    fun setOnGameModeChangeListener(listener: (GameMode) -> Unit) {
+        modeChangeListener = listener
+        // Notify initial state
+        listener(currentGameMode)
     }
 
     override fun onDetachedFromWindow() {
@@ -100,7 +127,8 @@ class FingerPickerView @JvmOverloads constructor(
 
         when (action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                val color = generateRandomColor()
+                // In Group mode, start with light gray. In Starting Player, use random color.
+                val color = if (currentGameMode == GameMode.GROUP) Color.LTGRAY else generateRandomColor()
                 fingers[pointerId] = Finger(event.getX(pointerIndex), event.getY(pointerIndex), color)
                 onFingerCountChanged()
             }
@@ -133,7 +161,8 @@ class FingerPickerView @JvmOverloads constructor(
 
         when (action) {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                if (pointerId == winnerPointerId) {
+                // Check if the lifted finger is one of the winners
+                if (winnerPointerIds?.contains(pointerId) == true) {
                     resetGame()
                 } else {
                     fingers.remove(pointerId)
@@ -166,13 +195,60 @@ class FingerPickerView @JvmOverloads constructor(
 
         val keys = fingers.keys.toList()
         if (keys.isNotEmpty()) {
-            val winnerIndex = random.nextInt(keys.size)
-            winnerPointerId = keys[winnerIndex]
             isFinished = true
             
+            if (currentGameMode == GameMode.GROUP && keys.size > 1) {
+                performGroupPick(keys)
+            } else {
+                performSinglePick(keys)
+            }
+
             triggerVibration()
+            winnerColor?.let { animateBackgroundColor(it) }
             
             invalidate()
+        }
+    }
+    
+    private fun performSinglePick(keys: List<Int>) {
+        val winnerIndex = random.nextInt(keys.size)
+        val winnerId = keys[winnerIndex]
+        winnerPointerIds = listOf(winnerId)
+        winnerColor = fingers[winnerId]?.color
+    }
+    
+    private fun performGroupPick(keys: List<Int>) {
+        // Split into 2 groups
+        val shuffledKeys = keys.shuffled(random)
+        val mid = shuffledKeys.size / 2
+        // Ensure at least 1 in each group if size >= 2
+        
+        val group1Keys = shuffledKeys.subList(0, mid)
+        val group2Keys = shuffledKeys.subList(mid, shuffledKeys.size)
+        
+        // Assign colors to groups
+        val color1 = Color.CYAN
+        val color2 = Color.MAGENTA
+        
+        group1Keys.forEach { id -> 
+            val finger = fingers[id]
+            finger?.groupColor = color1 
+            finger?.color = color1 // Update the main color as well so the circles have the same color
+        }
+        group2Keys.forEach { id -> 
+            val finger = fingers[id]
+            finger?.groupColor = color2 
+            finger?.color = color2 // Update the main color as well
+        }
+        
+        // Pick winning group
+        val winningGroupIndex = random.nextInt(2)
+        if (winningGroupIndex == 0) {
+            winnerPointerIds = group1Keys
+            winnerColor = color1
+        } else {
+            winnerPointerIds = group2Keys
+            winnerColor = color2
         }
     }
     
@@ -184,13 +260,29 @@ class FingerPickerView @JvmOverloads constructor(
             vibrator.vibrate(500)
         }
     }
+    
+    private fun animateBackgroundColor(targetColor: Int) {
+        val animator = ValueAnimator.ofObject(argbEvaluator, currentBackgroundColor, targetColor)
+        animator.duration = 500 // 500ms animation
+        animator.addUpdateListener { animation ->
+            currentBackgroundColor = animation.animatedValue as Int
+            setBackgroundColor(currentBackgroundColor)
+        }
+        animator.start()
+    }
 
     private fun resetGame() {
         resetTimers()
         tonePlayer.stop()
         isFinished = false
-        winnerPointerId = null
+        winnerPointerIds = null
+        winnerColor = null
         fingers.clear()
+        
+        // Reset background color
+        currentBackgroundColor = defaultBackgroundColor
+        setBackgroundColor(defaultBackgroundColor)
+        
         invalidate()
     }
 
@@ -236,41 +328,39 @@ class FingerPickerView @JvmOverloads constructor(
         super.onDraw(canvas)
         
         val currentTime = System.currentTimeMillis()
-        var needsInvalidate = false
 
         if (isFinished) {
-            winnerPointerId?.let { id ->
-                fingers[id]?.let { finger ->
-                    // Winner is always full scale
-                    drawFingerCircle(canvas, finger, 1f)
+            winnerPointerIds?.let { ids ->
+                ids.forEach { id ->
+                    fingers[id]?.let { finger ->
+                        // Use finger.color which is now updated to group color in group mode
+                        
+                        paint.color = finger.color
+                        paint.style = Paint.Style.FILL
+                        canvas.drawCircle(finger.x, finger.y, circleRadiusPx, paint)
+                        
+                        paint.style = Paint.Style.STROKE
+                        paint.strokeWidth = 15f
+                        paint.color = defaultBackgroundColor
+                        canvas.drawCircle(finger.x, finger.y, circleRadiusPx, paint)
+                    }
                 }
             }
         } else {
             for (finger in fingers.values) {
                 val elapsed = currentTime - finger.startTime
                 val scale = getBounceScale(elapsed)
-                
-                if (elapsed < BOUNCE_DURATION_MS) {
-                    needsInvalidate = true
-                }
-                
                 drawFingerCircle(canvas, finger, scale)
             }
-        }
-        
-        if (needsInvalidate) {
-            postInvalidateOnAnimation()
+            // Keep animating
+            if (fingers.isNotEmpty()) {
+                postInvalidateOnAnimation()
+            }
         }
     }
     
     private fun getBounceScale(elapsed: Long): Float {
-        if (elapsed >= BOUNCE_DURATION_MS) return 1f
-        
-        val t = elapsed.toFloat() / BOUNCE_DURATION_MS
-        // Damped sine wave for bounce effect
-        // scale = 1 - exp(-5t) * cos(10t)
-        // At t=0, scale=0. At t=1, scale ~= 1
-        return (1f - exp(-5f * t) * cos(10f * t))
+        return 1f + 0.05f * sin(2 * PI * elapsed / 600.0).toFloat()
     }
 
     private fun drawFingerCircle(canvas: Canvas, finger: Finger, scale: Float) {
@@ -301,7 +391,6 @@ class FingerPickerView @JvmOverloads constructor(
                          AudioFormat.CHANNEL_OUT_MONO,
                          AudioFormat.ENCODING_PCM_16BIT
                      )
-                     // Ensure bufferSize is reasonable
                      val finalBufferSize = if (bufferSize > 0) bufferSize else 2048
                      
                      val track = AudioTrack.Builder()
