@@ -1,4 +1,4 @@
-package com.example.chwazi2
+package com.example.pick_a_player
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -1,7 +1,5 @@
-package com.example.chwazi2
+package com.example.pick_a_player
 
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color

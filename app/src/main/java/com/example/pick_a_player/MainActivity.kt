@@ -1,4 +1,4 @@
-package com.example.chwazi2
+package com.example.pick_a_player
 
 import android.graphics.Color
 import android.os.Bundle

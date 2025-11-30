@@ -1,10 +1,9 @@
-package com.example.chwazi2
+package com.example.pick_a_player
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import kotlin.math.sin
-import kotlin.math.PI
 
 class RisingTonePlayer {
     private var currentTrack: AudioTrack? = null

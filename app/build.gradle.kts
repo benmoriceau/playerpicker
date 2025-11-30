@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.chwazi2"
+    namespace = "com.example.pick_a_player"
     compileSdk {
         version = release(36)
     }

@@ -1,4 +1,4 @@
-package com.example.chwazi2
+package com.example.pick_a_player
 
 data class Finger(
     var x: Float,
