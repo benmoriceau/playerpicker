@@ -87,10 +87,10 @@ class MainActivity : AppCompatActivity() {
         popup.setOnMenuItemClickListener { item ->
             when (item.title) {
                 "Starting Player" -> {
-                    fingerPickerView.setGameMode(FingerPickerView.GameMode.STARTING_PLAYER)
+                    fingerPickerView.setGameMode(GameMode.STARTING_PLAYER)
                 }
                 "Group" -> {
-                    fingerPickerView.setGameMode(FingerPickerView.GameMode.GROUP)
+                    fingerPickerView.setGameMode(GameMode.GROUP)
                 }
             }
             true

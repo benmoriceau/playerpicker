@@ -1,0 +1,11 @@
+Non-Commercial License
+
+This project is licensed under a Non-Commercial License.
+
+You are free to:
+1. Use: You may use this application for personal purposes.
+2. Modify: You may modify the source code for your own personal use.
+
+Under the following conditions:
+1. Non-Commercial: You may NOT use this application or its source code for commercial purposes. This includes, but is not limited to, selling the app, including it in a paid product, or using it to promote a business.
+2. No Warranty: This software is provided "as is", without warranty of any kind, express or implied.

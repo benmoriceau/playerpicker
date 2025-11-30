@@ -6,9 +6,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -18,11 +15,8 @@ import android.os.VibratorManager
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import android.widget.PopupMenu
 import java.util.Random
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.PI
 
@@ -31,19 +25,6 @@ class FingerPickerView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
-
-    enum class GameMode(val displayName: String) {
-        STARTING_PLAYER("Starting Player"),
-        GROUP("Group")
-    }
-
-    private data class Finger(
-        var x: Float,
-        var y: Float,
-        var color: Int, // Changed to var to allow color update
-        val startTime: Long = System.currentTimeMillis(),
-        var groupColor: Int? = null // Used for group mode
-    )
 
     private var currentGameMode = GameMode.STARTING_PLAYER
 
@@ -374,98 +355,5 @@ class FingerPickerView @JvmOverloads constructor(
         paint.strokeWidth = 5f * scale
         paint.color = Color.WHITE
         canvas.drawCircle(finger.x, finger.y, radius, paint)
-    }
-    
-    private inner class RisingTonePlayer {
-        private var currentTrack: AudioTrack? = null
-        @Volatile private var isPlaying = false
-        private val sampleRate = 44100
-        
-        fun start(durationMs: Long) {
-             stop()
-             isPlaying = true
-             Thread {
-                 try {
-                     val bufferSize = AudioTrack.getMinBufferSize(
-                         sampleRate,
-                         AudioFormat.CHANNEL_OUT_MONO,
-                         AudioFormat.ENCODING_PCM_16BIT
-                     )
-                     val finalBufferSize = if (bufferSize > 0) bufferSize else 2048
-                     
-                     val track = AudioTrack.Builder()
-                         .setAudioAttributes(
-                              AudioAttributes.Builder()
-                                  .setUsage(AudioAttributes.USAGE_GAME)
-                                  .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                  .build()
-                         )
-                         .setAudioFormat(
-                              AudioFormat.Builder()
-                                  .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                                  .setSampleRate(sampleRate)
-                                  .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                                  .build()
-                         )
-                         .setBufferSizeInBytes(finalBufferSize)
-                         .setTransferMode(AudioTrack.MODE_STREAM)
-                         .build()
-                     
-                     currentTrack = track
-                     track.play()
-                     
-                     val totalSamples = (sampleRate * durationMs / 1000).toInt()
-                     val buffer = ShortArray(finalBufferSize)
-                     var sampleIndex = 0
-                     
-                     // Frequencies
-                     val startFreq = 100.0
-                     val endFreq = 300.0
-                     var phase = 0.0
-                     
-                     while (isPlaying && sampleIndex < totalSamples) {
-                         var i = 0
-                         while (i < buffer.size && sampleIndex < totalSamples && isPlaying) {
-                             val progress = sampleIndex.toDouble() / totalSamples
-                             val currentFreq = startFreq + (endFreq - startFreq) * progress
-                             
-                             phase += 2.0 * Math.PI * currentFreq / sampleRate
-                             if (phase > 2.0 * Math.PI) {
-                                 phase -= 2.0 * Math.PI
-                             }
-                             
-                             val sampleValue = (sin(phase) * Short.MAX_VALUE * 0.5).toInt().toShort()
-                             buffer[i] = sampleValue
-                             
-                             i++
-                             sampleIndex++
-                         }
-                         if (i > 0) {
-                             track.write(buffer, 0, i)
-                         }
-                     }
-                     
-                 } catch (e: Exception) {
-                     e.printStackTrace()
-                 } finally {
-                     release()
-                 }
-             }.start()
-        }
-        
-        fun stop() {
-            isPlaying = false
-            try {
-                 currentTrack?.pause()
-                 currentTrack?.flush()
-            } catch (e: Exception) {}
-        }
-        
-        private fun release() {
-             try {
-                 currentTrack?.release()
-             } catch (e: Exception) {}
-             currentTrack = null
-        }
     }
 }
