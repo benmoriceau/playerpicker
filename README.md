@@ -23,7 +23,7 @@ PickAPlayer is a utility app designed to help you pick a starting player or spli
 
 The project is a standard Android application built with Kotlin.
 
-*   **app/src/main/java/com/example/chwazi2/**: Contains the Kotlin source code.
+*   **app/src/main/java/com/pikaplayer/pikaplayer/**: Contains the Kotlin source code.
     *   `MainActivity.kt`: The main entry point, handles the UI layout and menu interaction.
     *   `FingerPickerView.kt`: Custom View handling touch events, rendering, and game logic.
     *   `Finger.kt`: Data class representing a touch point.

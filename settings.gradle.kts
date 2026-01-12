@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PickAPlayer"
+rootProject.name = "PikaPlayer"
 include(":app")
